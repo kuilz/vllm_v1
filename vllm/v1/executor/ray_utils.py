@@ -104,6 +104,14 @@ try:
                 scheduler_output, intermediate_tensors
             )
             if isinstance(output, IntermediateTensors):
+                # **********************instrument*****************************
+                import torch
+                torch.cuda.synchronize()
+                server_id = os.environ.get('PP_SERVER_ID', '0')
+                f = open(f'/server_{server_id}.log', 'a')
+                print(f'{0} trans starts at {time.time()}', file = f)
+                f.close()
+                # **********************instrument*****************************
                 output = scheduler_output, grammar_output, output
             elif not get_pp_group().is_last_rank:
                 # Case where there are no scheduled requests

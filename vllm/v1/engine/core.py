@@ -387,6 +387,20 @@ class EngineCore:
         deferred_scheduler_output = None
         if self.scheduler.has_requests():
             scheduler_output = self.scheduler.schedule()
+            # **********************instrument*****************************
+            if scheduler_output.total_num_scheduled_tokens > 0:
+                server_id = os.environ.get('PP_SERVER_ID', '0')
+                f = open(f'/server_{server_id}.log', 'a')
+                cur = time.time()
+                for new_reqs in scheduler_output.scheduled_new_reqs:
+                    req_id = new_reqs.req_id
+                    print(f'request {req_id} is scheduled to run at {cur}', file=f)
+
+                for old_req_id in scheduler_output.scheduled_cached_reqs.req_ids:
+                    print(f'request {old_req_id} is scheduled to run at {cur}', file=f)
+
+                f.close()
+            # **********************instrument*****************************
             exec_future = self.model_executor.execute_model(
                 scheduler_output, non_block=True
             )
@@ -435,7 +449,20 @@ class EngineCore:
         future, scheduler_output = batch_queue.pop()
         with self.log_error_detail(scheduler_output):
             model_output = future.result()
+        # **********************instrument*****************************
+        server_id = os.environ.get('PP_SERVER_ID', '0')
+        f = open(f'/server_{server_id}.log', 'a')
+        cur = time.time()
+        for new_reqs in scheduler_output.scheduled_new_reqs:
+            req_id = new_reqs.req_id
+            print(f'request {req_id} finished an iteration at {cur}', file = f)
+            print(f'request {req_id} got its first token at {cur}', file = f)
 
+        for old_req_id in scheduler_output.scheduled_cached_reqs.req_ids:
+            print(f'request {old_req_id} finished an iteration at {cur}', file = f)
+
+        f.close()
+        # **********************instrument*****************************
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output
         )
